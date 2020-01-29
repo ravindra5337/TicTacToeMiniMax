@@ -27,6 +27,6 @@ Before optimization
 
 After optimization 
 
-![test]:(images/mx_after_opt.png)
+![test]:(https://github.com/ravindra5337/TicTacToeMiniMax/blob/master/images/mx_after_opt.png)
 
 - There are multiple ways to win a game. Some of which take a lot of steps to reach the win state, while others take a few. The Minimax tree only tries to maximize the score and does not take number of steps for consideration. In order for minimax to take into account the fewer number of steps while maximizing the score,  tree depth has been deducted from the score. Hence, the deeper the tree, the lesser will be its score for that board.
