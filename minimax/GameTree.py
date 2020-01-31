@@ -2,20 +2,41 @@ import numpy as np
 
 class GameTree:
 
-    def IsMovePossible(self,position):
-        rowIndex=position//3
-        colIndex=position%3
-        return self.state[rowIndex,colIndex]==0
+    def __init__(self, current_state, current_player, depth):
+        self.state = current_state
+        self.currentPlayer = current_player
+        self.depth = depth
+        nxt_player = 1
+        if current_player == 1:
+            nxt_player = 2
+        board_score = self.game_board_score(current_state, current_player, nxt_player)
+        if board_score == 0 or board_score == -1:
+            self.board_score = 0
+        else:
+            self.board_score = board_score * -100 if board_score == 2 else board_score * 100
+            self.board_score = self.board_score - depth if self.board_score > 0 else self.board_score + depth
+        self.children = []
+        if board_score == -1:
+            all_nxt_states = self.generate_next_board_states(nxt_player)
+            if len(all_nxt_states) > 0:
+                for i in all_nxt_states:
+                    node = GameTree(i, nxt_player, depth + 1)
+                    self.children.insert(0, node)
 
-    def GameStateAfterMoveAt(self,position,state,curPlayer):
-        nxtState=np.full((3,3),0)
-        nxtState=state.copy()
-        rowIndex = position // 3
-        colIndex = position % 3
-        nxtState[rowIndex,colIndex]=curPlayer
-        return nxtState
+    def is_move_possible(self, position):
+        row_index=position//3
+        col_index=position%3
+        return self.state[row_index,col_index]==0
 
-    def IsStateAlreadyExist(self,states, state2):
+    def get_game_state_after_move(self, position, state, cur_player):
+        nxt_state=np.full((3,3),0)
+        nxt_state=state.copy()
+        row_index = position // 3
+        col_index = position % 3
+        nxt_state[row_index,col_index]=cur_player
+        return nxt_state
+
+    def is_state_already_exist(self, states, state2):
         for state1 in states:
             state = state1 == state2
             state = np.reshape(state, (9, 1))
@@ -24,200 +45,179 @@ class GameTree:
         return False
 
 
-    def IsIdenticalStateAlreadyExistInList(self,states,curState):
+    def is_mirror_state_already_exist(self, states, cur_state):
         if len(states)>0:
-            if not self.IsStateAlreadyExist(states, curState) and not self.IsStateAlreadyExist(states, np.flip(curState, 1)):
-                rotatecount=0
-                identicalState=curState
-                while rotatecount<4:
-                    identicalState=np.rot90(identicalState)
-                    if  self.IsStateAlreadyExist(states, identicalState) or self.IsStateAlreadyExist(states,np.flip(identicalState, 1)):
+            if not self.is_state_already_exist(states, cur_state) and not self.is_state_already_exist(states, np.flip(cur_state, 1)):
+                rotate_count=0
+                identical_state=cur_state
+                while rotate_count<4:
+                    identical_state=np.rot90(identical_state)
+                    if  self.is_state_already_exist(states, identical_state) or self.is_state_already_exist(states, np.flip(identical_state, 1)):
                         return True
-                    rotatecount+=1
+                    rotate_count+=1
             else:
                 return True
 
         return False
 
 
-    def GameBoardScore(self,state, curPlayer, nxtPlayer):
-        boardScore = -1
-        curPlayerRow = np.full((1, 3), curPlayer)
-        nxtPlayerRow = np.full((1, 3), nxtPlayer)
-        emptyBoard = np.full((3, 3), 0)
-        stateTranspose = state.transpose()
+    def game_board_score(self, state, cur_player, nxt_player):
+        board_score = -1
+        cur_player_row = np.full((1, 3), cur_player)
+        nxt_player_row = np.full((1, 3), nxt_player)
+        empty_board = np.full((3, 3), 0)
+        state_transpose = state.transpose()
 
-        if np.sum(state == emptyBoard) == 0:
-            boardScore = 0
+        if np.sum(state == empty_board) == 0:
+            board_score = 0
 
-        if boardScore == -1:
+        if board_score == -1:
 
             for i in range(0, 3):
-                scoreh = np.sum(state[i:i + 1, ] == curPlayerRow)
-                scorev = np.sum(stateTranspose[i:i + 1, ] == curPlayerRow)
+                scoreh = np.sum(state[i:i + 1, ] == cur_player_row)
+                scorev = np.sum(state_transpose[i:i + 1, ] == cur_player_row)
                 if scoreh == 3 or scorev == 3:
-                    boardScore = curPlayer
+                    board_score = cur_player
                     break
-                scoreh = np.sum(state[i:i + 1, ] == nxtPlayerRow)
-                scorev = np.sum(stateTranspose[i:i + 1, ] == nxtPlayerRow)
+                scoreh = np.sum(state[i:i + 1, ] == nxt_player_row)
+                scorev = np.sum(state_transpose[i:i + 1, ] == nxt_player_row)
                 if scoreh == 3 or scorev == 3:
-                    boardScore = nxtPlayer
+                    board_score = nxt_player
                     break
 
-            if boardScore == -1:
+            if board_score == -1:
                 dia = state.diagonal()
                 antidia = np.flip(state, 1).diagonal()
-                scoreh = np.sum(dia == curPlayerRow)
-                scorev = np.sum(antidia == curPlayerRow)
+                scoreh = np.sum(dia == cur_player_row)
+                scorev = np.sum(antidia == cur_player_row)
                 if scoreh == 3 or scorev == 3:
-                    boardScore = curPlayer
-                    return boardScore
-                scoreh = np.sum(dia == nxtPlayerRow)
-                scorev = np.sum(antidia == nxtPlayerRow)
+                    board_score = cur_player
+                    return board_score
+                scoreh = np.sum(dia == nxt_player_row)
+                scorev = np.sum(antidia == nxt_player_row)
                 if scoreh == 3 or scorev == 3:
-                    boardScore = nxtPlayer
-                    return boardScore
+                    board_score = nxt_player
+                    return board_score
 
-        return boardScore
+        return board_score
 
-    def GenerateNextBoardStates(self,plyer):
-        nxtstates=[]
+    def generate_next_board_states(self, plyer):
+        nxt_states=[]
         for i in range(0,9):
-            if self.IsMovePossible(i):
-                nxtState=self.GameStateAfterMoveAt(i,self.state,plyer)
-                nxtPlayer = 1
+            if self.is_move_possible(i):
+                nxt_state=self.get_game_state_after_move(i, self.state, plyer)
+                nxt_player = 1
                 if plyer == 1:
-                    nxtPlayer = 2
-                boardScore=self.GameBoardScore(nxtState,plyer,nxtPlayer)
-                if boardScore==-1:
-                    if not self.IsIdenticalStateAlreadyExistInList(nxtstates, nxtState):
-                        nxtstates.insert(0,nxtState)
+                    nxt_player = 2
+                board_score=self.game_board_score(nxt_state, plyer, nxt_player)
+                if board_score==-1:
+                    if not self.is_mirror_state_already_exist(nxt_states, nxt_state):
+                        nxt_states.insert(0,nxt_state)
                 else:
-                    nxtstates=[]
-                    nxtstates.insert(0,nxtState)
+                    nxt_states=[]
+                    nxt_states.insert(0,nxt_state)
                     break
-        return nxtstates
+        return nxt_states
 
 
-
-    def __init__(self,currentState,currentPlayer,depth):
-        self.state=currentState
-        self.currentPlayer=currentPlayer
-        self.depth=depth
-        nxtPlayer=1
-        if currentPlayer==1:
-            nxtPlayer=2
-        boardScore= self.GameBoardScore( currentState, currentPlayer, nxtPlayer)
-        if boardScore==0 or boardScore==-1:
-            self.boardScore=0
-        else:
-            self.boardScore =boardScore * -100 if boardScore==2 else boardScore * 100
-            self.boardScore =self.boardScore - depth if self.boardScore>0 else self.boardScore + depth
-        self.children=[]
-        if boardScore==-1:
-            allNxtStates=self.GenerateNextBoardStates(nxtPlayer)
-            if len(allNxtStates)>0:
-                for i in allNxtStates:
-                    node=GameTree(i,nxtPlayer,depth+1)
-                    self.children.insert(0,node)
 
 
 
 if __name__ == '__main__':
 
-    def GameBoardScore(state, curPlayer, nxtPlayer):
-        boardScore = -1
-        curPlayerRow = np.full((1, 3), curPlayer)
-        nxtPlayerRow = np.full((1, 3), nxtPlayer)
-        emptyBoard = np.full((3, 3), 0)
-        stateTranspose = state.transpose()
+    def game_board_score(state, cur_player, nxt_player):
+        board_score = -1
+        cur_player_row = np.full((1, 3), cur_player)
+        nxt_player_row = np.full((1, 3), nxt_player)
+        empty_board = np.full((3, 3), 0)
+        state_transpose = state.transpose()
 
-        if np.sum(state == emptyBoard) == 0:
-            boardScore = 0
+        if np.sum(state == empty_board) == 0:
+            board_score = 0
 
-        if boardScore == -1:
+        if board_score == -1:
 
             for i in range(0, 3):
-                scoreh = np.sum(state[i:i + 1, ] == curPlayerRow)
-                scorev = np.sum(stateTranspose[i:i + 1, ] == curPlayerRow)
+                scoreh = np.sum(state[i:i + 1, ] == cur_player_row)
+                scorev = np.sum(state_transpose[i:i + 1, ] == cur_player_row)
                 if scoreh == 3 or scorev == 3:
-                    boardScore = curPlayer
+                    board_score = cur_player
                     break
-                scoreh = np.sum(state[i:i + 1, ] == nxtPlayerRow)
-                scorev = np.sum(stateTranspose[i:i + 1, ] == nxtPlayerRow)
+                scoreh = np.sum(state[i:i + 1, ] == nxt_player_row)
+                scorev = np.sum(state_transpose[i:i + 1, ] == nxt_player_row)
                 if scoreh == 3 or scorev == 3:
-                    boardScore = nxtPlayer
+                    board_score = nxt_player
                     break
 
-            if boardScore == -1:
+            if board_score == -1:
                 dia = state.diagonal()
                 antidia = np.flip(state, 1).diagonal()
-                scoreh = np.sum(dia == curPlayerRow)
-                scorev = np.sum(antidia == curPlayerRow)
+                scoreh = np.sum(dia == cur_player_row)
+                scorev = np.sum(antidia == cur_player_row)
                 if scoreh == 3 or scorev == 3:
-                    boardScore = curPlayer
-                    return boardScore
-                scoreh = np.sum(dia == nxtPlayerRow)
-                scorev = np.sum(antidia == nxtPlayerRow)
+                    board_score = cur_player
+                    return board_score
+                scoreh = np.sum(dia == nxt_player_row)
+                scorev = np.sum(antidia == nxt_player_row)
                 if scoreh == 3 or scorev == 3:
-                    boardScore = nxtPlayer
-                    return boardScore
+                    board_score = nxt_player
+                    return board_score
 
-        return boardScore
+        return board_score
 
 
-    def minimax(tree,isMaximizer):
+    def minimax(tree, is_maximizer):
         if len(tree.children)<=0:
-            return tree.boardScore
+            return tree.board_score
         else:
-            if isMaximizer:
-                minScore=2000
+            if is_maximizer:
+                min_score=2000
                 for child in tree.children:
                     scr=minimax(child,False)
-                    minScore=scr if scr<minScore else minScore
-                return minScore
+                    min_score=scr if scr<min_score else min_score
+                return min_score
             else:
-                maxScore=-2000
+                max_score=-2000
                 for child in tree.children:
                     scr=minimax(child,True)
-                    maxScore=scr if scr>maxScore else maxScore
-                return maxScore
+                    max_score=scr if scr>max_score else max_score
+                return max_score
 
 
-    def GetOptimalMove(currentState,prevPlayer):
-        tree=GameTree(currentState,prevPlayer,0)
-        nextState=np.zeros((3,3))
-        if prevPlayer==2:
-            maxScore = -2000
+    def get_optimal_move(currentState, prev_player):
+        tree=GameTree(currentState, prev_player, 0)
+        next_state=np.zeros((3,3))
+        if prev_player==2:
+            max_score = -2000
             for child in tree.children:
                 scr = minimax(child, True)
-                if scr>maxScore:
-                    maxScore=scr
-                    nextState=child.state
+                if scr>max_score:
+                    max_score=scr
+                    next_state=child.state
         else:
-            minScore = 2000
+            min_score = 2000
             for child in tree.children:
                 scr = minimax(child, False)
-                if scr<minScore:
-                    minScore = scr
-                    nextState=child.state
+                if scr<min_score:
+                    min_score = scr
+                    next_state=child.state
 
-        return  nextState
+        return  next_state
 
-    currentState=np.zeros((3,3))
-    currentPlayer=1
-    print(currentState)
+    current_state=np.zeros((3, 3))
+    current_player=1
+    print(current_state)
     print("------------")
 
     while True:
         action=input("Enter the position: ")
-        rowIndex=int(action)//3
-        colIndex=int(action)%3
-        if rowIndex>2 or colIndex>2 or currentState[rowIndex,colIndex]!=0:
+        row_index= int(action) // 3
+        col_index= int(action) % 3
+        if row_index>2 or col_index>2 or current_state[row_index, col_index]!=0:
             print("Invalid Choice")
             continue
-        currentState[rowIndex,colIndex]=currentPlayer
-        score = GameBoardScore(currentState, currentPlayer, 2 if currentPlayer == 1 else 1)
+        current_state[row_index, col_index]=current_player
+        score = game_board_score(current_state, current_player, 2 if current_player == 1 else 1)
         if score==0:
             print("Game Tied")
             break
@@ -225,16 +225,16 @@ if __name__ == '__main__':
             winner="You" if score==1 else "AI"
             print("Winner is {0}".format(winner))
             break
-        print(currentState)
+        print(current_state)
         print("------------")
-        currentPlayer=1 if currentPlayer==2 else 2
-        pvPlayer=1 if currentPlayer==2 else 1
+        current_player=1 if current_player == 2 else 2
+        pv_player=1 if current_player == 2 else 1
         print("---AI Turn---")
-        currentState=GetOptimalMove(currentState,pvPlayer)
-        print(currentState)
+        current_state=get_optimal_move(current_state, pv_player)
+        print(current_state)
         print("------------")
-        currentPlayer = 1 if currentPlayer == 2 else 2
-        score=GameBoardScore(currentState,currentPlayer,2 if currentPlayer==1 else 1)
+        current_player = 1 if current_player == 2 else 2
+        score=game_board_score(current_state, current_player, 2 if current_player == 1 else 1)
 
         if score==0:
             print("Game Tied")
